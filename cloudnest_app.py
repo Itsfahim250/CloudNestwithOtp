@@ -131,12 +131,20 @@ def is_admin(chat_id: str) -> bool:
     return str(chat_id) in ADMIN_CHAT_IDS
 
 def get_public_base_url() -> str:
+    # Render নিজে থেকেই লাইভ URL এই ভেরিয়েবলে সেভ করে রাখে
+    render_url = os.environ.get("RENDER_EXTERNAL_URL")
+    if render_url:
+        return render_url.rstrip("/")
+    
+    # যদি লোকাল কম্পিউটারে রান করেন তার জন্য ফলব্যাক
     try:
+        from flask import request
         if request and request.url_root:
             return request.url_root.rstrip("/")
     except Exception:
         pass
-    return "https://cloudnest-api.onrender.com"
+        
+    return "http://localhost:8080"
 
 # --- EMAIL SENDER (FACEBOOK STYLE TEMPLATE FOR BOT REGISTRATION) ---
 def send_otp_email(to_email, otp_code):
