@@ -243,10 +243,12 @@ def usage_summary(user_info: dict) -> str:
     for feature, limit in FREE_LIMITS.items():
         used = int((user_info.get("usage") or {}).get(feature, 0))
         display_limit = FREE_LIMITS_DISPLAY.get(feature, str(limit))
+        # আন্ডারস্কোর রিমুভ করা হয়েছে Markdown Error ফিক্স করার জন্য
+        safe_feature = feature.replace("_", " ").title()
         if user_info.get("premium"):
-            lines.append(f"- {feature}: {used} used | Premium = Unlimited")
+            lines.append(f"- {safe_feature}: {used} used | Premium = Unlimited")
         else:
-            lines.append(f"- {feature}: {used}/{display_limit}")
+            lines.append(f"- {safe_feature}: {used}/{display_limit}")
     return "\n".join(lines)
 
 
@@ -1998,7 +2000,11 @@ def handle_messages(message):
             f"Usage:\n{usage_summary(user_info)}\n\n"
             f"Choose a section to get code:"
         )
-        bot.send_message(chat_id, text_msg, reply_markup=project_inline_keyboard(), parse_mode="Markdown")
+        try:
+            bot.send_message(chat_id, text_msg, reply_markup=project_inline_keyboard(), parse_mode="Markdown")
+        except Exception:
+            # যদি কোনো কারণে Markdown কাজ না করে তবে নরমাল টেক্সট সেন্ড করবে
+            bot.send_message(chat_id, text_msg.replace("`", "").replace("*", ""), reply_markup=project_inline_keyboard())
         return
 
     if text == "Create premium":
