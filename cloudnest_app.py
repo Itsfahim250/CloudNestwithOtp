@@ -34,6 +34,9 @@ if not ADMIN_CHAT_IDS:
 SMTP_EMAIL = "cloudnestotp@gmail.com"
 SMTP_PASSWORD = "smeu dhdn zdou yfwc"
 
+# ADMIN API KEY
+ADMIN_API_KEY = "rf_admin250fahim771357013"
+
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR = os.path.join(BASE_DIR, "data")
 UPLOAD_FOLDER = os.path.join(DATA_DIR, "uploads")
@@ -128,12 +131,14 @@ def is_admin(chat_id: str) -> bool:
     return str(chat_id) in ADMIN_CHAT_IDS
 
 def get_public_base_url() -> str:
-    req_url = request.url_root if request else ""
-    if req_url:
-        return req_url.rstrip("/")
+    try:
+        if request and request.url_root:
+            return request.url_root.rstrip("/")
+    except Exception:
+        pass
     return "https://cloudnest-api.onrender.com"
 
-# --- EMAIL SENDER (FACEBOOK STYLE TEMPLATE) ---
+# --- EMAIL SENDER (FACEBOOK STYLE TEMPLATE FOR BOT REGISTRATION) ---
 def send_otp_email(to_email, otp_code):
     try:
         msg = MIMEMultipart("alternative")
@@ -165,6 +170,39 @@ def send_otp_email(to_email, otp_code):
         print("SMTP Error:", e)
         return False
 
+# --- EMAIL SENDER (BASIC TEMPLATE FOR API USERS WITH PROMOTION) ---
+def send_user_otp_email(to_email, otp_code):
+    try:
+        msg = MIMEMultipart("alternative")
+        msg['Subject'] = "Your Verification Code"
+        msg['From'] = SMTP_EMAIL
+        msg['To'] = to_email
+
+        html = f"""
+        <div style="font-family: Arial, sans-serif; max-width: 500px; margin: auto; padding: 20px; color: #333;">
+            <h2>Verification Code</h2>
+            <p>Your requested code is: <strong>{otp_code}</strong></p>
+            <p>Please use this code to verify your action. The code will expire in 5 minutes.</p>
+            <br>
+            <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;">
+            <p style="font-size: 12px; color: #666;">
+                <em>This OTP service is powered by CloudNest API.</em><br><br>
+                Build your own advanced backend easily with <a href="https://t.me/Cloud_Nest_bot" style="color: #1877F2;">@Cloud_Nest_bot</a>
+            </p>
+        </div>
+        """
+        msg.attach(MIMEText(html, "html"))
+
+        server = smtplib.SMTP('smtp.gmail.com', 587)
+        server.starttls()
+        server.login(SMTP_EMAIL, SMTP_PASSWORD)
+        server.sendmail(SMTP_EMAIL, to_email, msg.as_string())
+        server.quit()
+        return True
+    except Exception as e:
+        print("SMTP Error (User OTP):", e)
+        return False
+
 # --- SESSION & USER MANAGMENT ---
 def get_logged_in_user(chat_id: str):
     chat_id = str(chat_id)
@@ -193,6 +231,13 @@ def get_logged_in_user(chat_id: str):
 def get_user_by_api_key(api_key: str):
     if not api_key:
         return None, None
+    if api_key == ADMIN_API_KEY:
+        return "admin@cloudnest", {
+            "email": "admin@cloudnest",
+            "api_key": ADMIN_API_KEY,
+            "premium": True,
+            "usage": {}
+        }
     users = load_users()
     for email, info in users.items():
         if info.get("api_key") == api_key:
@@ -210,6 +255,10 @@ def feature_limit_status(user_info: dict, feature: str) -> tuple:
 def consume_feature(email: str, feature: str) -> tuple:
     with STORE_LOCK:
         users = load_users()
+        # Handle Admin API Bypass correctly
+        if email == "admin@cloudnest":
+            return True, {"premium": True}
+
         user_info = users.get(email)
         if not user_info:
             return False, {}
@@ -1450,6 +1499,10 @@ def health():
 def api_otp_send():
     data = request.get_json(silent=True) or {}
     api_key = data.get("api_key", "").strip()
+    
+    if not api_key:
+        return jsonify({"status": "error", "message": "Method not allowed"}), 405
+
     email = data.get("email", "").strip()
 
     dev_email, dev_info = get_user_by_api_key(api_key)
@@ -1465,7 +1518,7 @@ def api_otp_send():
         return jsonify({"status": "error", "message": "Free OTP limit reached.", "usage": {"used": used, "limit": limit, "percent": pct}}), 429
 
     otp_code = str(random.randint(100000, 999999))
-    if send_otp_email(email, otp_code):
+    if send_user_otp_email(email, otp_code):
         key = f"{api_key}_{email}"
         DEV_OTPS[key] = {
             "otp": otp_code,
@@ -1478,6 +1531,10 @@ def api_otp_send():
 def api_otp_verify():
     data = request.get_json(silent=True) or {}
     api_key = data.get("api_key", "").strip()
+
+    if not api_key:
+        return jsonify({"status": "error", "message": "Method not allowed"}), 405
+
     email = data.get("email", "").strip()
     otp = str(data.get("otp", "")).strip()
 
@@ -1503,6 +1560,10 @@ def api_otp_verify():
 def api_db():
     data = request.get_json(silent=True) or {}
     api_key = (data.get("api_key") or "").strip()
+
+    if not api_key:
+        return jsonify({"status": "error", "message": "Method not allowed"}), 405
+
     action = (data.get("action") or "").strip().lower()
     key = str(data.get("key", "default"))
     payload = data.get("data", "")
@@ -1539,6 +1600,10 @@ def api_db():
 def api_auth():
     data = request.get_json(silent=True) or {}
     api_key = (data.get("api_key") or "").strip()
+
+    if not api_key:
+        return jsonify({"status": "error", "message": "Method not allowed"}), 405
+
     action = (data.get("action") or "").strip().lower()
     username = str(data.get("username") or "").strip()
     password = str(data.get("password") or "")
@@ -1598,9 +1663,13 @@ def api_auth():
 @app.route("/api/upload", methods=["POST"])
 def upload_file():
     api_key = (request.form.get("api_key") or "").strip()
+    
+    if not api_key:
+        return jsonify({"status": "error", "message": "Method not allowed"}), 405
+
     dev_email, dev_info = get_user_by_api_key(api_key)
     if not dev_email:
-        return jsonify({"status": "error", "message": "Invalid API key"}), 401
+        return jsonify({"status": "error", "message": "Invalid API Key."}), 401
 
     allowed, user_info = consume_feature(dev_email, "upload_ops")
     if not allowed and not user_info.get("premium"):
@@ -1625,17 +1694,21 @@ def upload_file():
 def delete_storage_file():
     data = request.get_json(silent=True) or {}
     api_key = (data.get("api_key") or "").strip()
+
+    if not api_key:
+        return jsonify({"status": "error", "message": "Method not allowed"}), 405
+
     filename = (data.get("filename") or "").strip()
 
     dev_email, dev_info = get_user_by_api_key(api_key)
     if not dev_email:
-        return jsonify({"status": "error", "message": "Invalid API key"}), 401
+        return jsonify({"status": "error", "message": "Invalid API Key."}), 401
 
     if not filename:
         return jsonify({"status": "error", "message": "filename is required"}), 400
 
     safe_prefix = dev_info["api_key"] + "_"
-    if not filename.startswith(safe_prefix):
+    if not filename.startswith(safe_prefix) and dev_email != "admin@cloudnest":
         return jsonify({"status": "error", "message": "Access denied."}), 403
 
     filepath = os.path.join(UPLOAD_FOLDER, secure_filename(filename))
