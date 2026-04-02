@@ -134,6 +134,7 @@ def get_public_base_url() -> str:
     return "https://cloudnest-api.onrender.com"
 
 # --- EMAIL SENDER (FACEBOOK STYLE TEMPLATE) ---
+# --- EMAIL SENDER (FACEBOOK STYLE TEMPLATE) ---
 def send_otp_email(to_email, otp_code):
     try:
         msg = MIMEMultipart("alternative")
@@ -155,9 +156,13 @@ def send_otp_email(to_email, otp_code):
         """
         msg.attach(MIMEText(html, "html"))
 
-        server = smtplib.SMTP('smtp.gmail.com', 587)
+        # TimeOut অ্যাড করা হয়েছে এবং পাসওয়ার্ডের স্পেস অটোমেটিক রিমুভ করা হয়েছে
+        server = smtplib.SMTP('smtp.gmail.com', 587, timeout=15)
         server.starttls()
-        server.login(SMTP_EMAIL, SMTP_PASSWORD)
+        
+        safe_password = SMTP_PASSWORD.replace(" ", "") # স্পেস রিমুভ করবে
+        server.login(SMTP_EMAIL, safe_password)
+        
         server.sendmail(SMTP_EMAIL, to_email, msg.as_string())
         server.quit()
         return True
