@@ -134,7 +134,6 @@ def get_public_base_url() -> str:
     return "https://cloudnest-api.onrender.com"
 
 # --- EMAIL SENDER (FACEBOOK STYLE TEMPLATE) ---
-# --- EMAIL SENDER (FACEBOOK STYLE TEMPLATE) ---
 def send_otp_email(to_email, otp_code):
     try:
         msg = MIMEMultipart("alternative")
@@ -156,13 +155,9 @@ def send_otp_email(to_email, otp_code):
         """
         msg.attach(MIMEText(html, "html"))
 
-        # TimeOut অ্যাড করা হয়েছে এবং পাসওয়ার্ডের স্পেস অটোমেটিক রিমুভ করা হয়েছে
-        server = smtplib.SMTP('smtp.gmail.com', 587, timeout=15)
+        server = smtplib.SMTP('smtp.gmail.com', 587)
         server.starttls()
-        
-        safe_password = SMTP_PASSWORD.replace(" ", "") # স্পেস রিমুভ করবে
-        server.login(SMTP_EMAIL, safe_password)
-        
+        server.login(SMTP_EMAIL, SMTP_PASSWORD)
         server.sendmail(SMTP_EMAIL, to_email, msg.as_string())
         server.quit()
         return True
@@ -248,12 +243,10 @@ def usage_summary(user_info: dict) -> str:
     for feature, limit in FREE_LIMITS.items():
         used = int((user_info.get("usage") or {}).get(feature, 0))
         display_limit = FREE_LIMITS_DISPLAY.get(feature, str(limit))
-        # আন্ডারস্কোর রিমুভ করা হয়েছে Markdown Error ফিক্স করার জন্য
-        safe_feature = feature.replace("_", " ").title()
         if user_info.get("premium"):
-            lines.append(f"- {safe_feature}: {used} used | Premium = Unlimited")
+            lines.append(f"- {feature}: {used} used | Premium = Unlimited")
         else:
-            lines.append(f"- {safe_feature}: {used}/{display_limit}")
+            lines.append(f"- {feature}: {used}/{display_limit}")
     return "\n".join(lines)
 
 
@@ -2001,15 +1994,11 @@ def handle_messages(message):
         api_key = user_info["api_key"]
         text_msg = (
             f"⚙️ Project Settings\n\n"
-            f"Your API Key:\n`{api_key}`\n\n*(Tap the key above to copy)*\n\n"
+            f"Your API Key:\n<code>{api_key}</code>\n\n(Tap the key above to copy)\n\n"
             f"Usage:\n{usage_summary(user_info)}\n\n"
             f"Choose a section to get code:"
         )
-        try:
-            bot.send_message(chat_id, text_msg, reply_markup=project_inline_keyboard(), parse_mode="Markdown")
-        except Exception:
-            # যদি কোনো কারণে Markdown কাজ না করে তবে নরমাল টেক্সট সেন্ড করবে
-            bot.send_message(chat_id, text_msg.replace("`", "").replace("*", ""), reply_markup=project_inline_keyboard())
+        bot.send_message(chat_id, text_msg, reply_markup=project_inline_keyboard(), parse_mode="HTML")
         return
 
     if text == "Create premium":
