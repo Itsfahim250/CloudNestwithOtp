@@ -1659,8 +1659,8 @@ def command_start(message):
     TEMP_AUTH_STATE.pop(chat_id, None) # reset any pending auth states
     email, user_info = get_logged_in_user(chat_id)
     if email:
-        text = f"🎉 Welcome back to CloudNest!\n\nYour API Key:\n`{user_info['api_key']}`\n\n*(Tap the key to copy it)*"
-        bot.send_message(chat_id, text, reply_markup=main_keyboard(chat_id), parse_mode="Markdown")
+        text = f"🎉 Welcome back to CloudNest!\n\nYour API Key:\n<code>{user_info['api_key']}</code>\n\n(Tap the key to copy it)"
+        bot.send_message(chat_id, text, reply_markup=main_keyboard(chat_id), parse_mode="HTML")
     else:
         bot.send_message(chat_id, "Welcome to CloudNest Database & Backend Bot!\n\nPlease Register or Login to continue.", reply_markup=auth_welcome_keyboard())
 
@@ -1824,8 +1824,8 @@ def handle_messages(message):
                 save_sessions(sessions)
                 
                 del TEMP_AUTH_STATE[chat_id]
-                msg = f"🎉 Account Registered Successfully!\n\nYour API Key:\n`{api_key}`\n\n*(Tap the key to copy)*"
-                bot.send_message(chat_id, msg, reply_markup=main_keyboard(chat_id), parse_mode="Markdown")
+                msg = f"🎉 Account Registered Successfully!\n\nYour API Key:\n<code>{api_key}</code>\n\n(Tap the key to copy)"
+                bot.send_message(chat_id, msg, reply_markup=main_keyboard(chat_id), parse_mode="HTML")
                 return
 
         # --- LOGIN ---
@@ -1871,8 +1871,8 @@ def handle_messages(message):
 
                 del TEMP_AUTH_STATE[chat_id]
                 api_key = users[email]["api_key"]
-                msg = f"✅ Logged in successfully!\n\nYour API Key:\n`{api_key}`\n\n*(Tap the key to copy)*"
-                bot.send_message(chat_id, msg, reply_markup=main_keyboard(chat_id), parse_mode="Markdown")
+                msg = f"✅ Logged in successfully!\n\nYour API Key:\n<code>{api_key}</code>\n\n(Tap the key to copy)"
+                bot.send_message(chat_id, msg, reply_markup=main_keyboard(chat_id), parse_mode="HTML")
                 return
 
     # Check for Login commands triggers
